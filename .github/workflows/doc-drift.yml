@@ -1,36 +1,88 @@
+# =============================================================================
+# Documentation Drift Check
+# =============================================================================
+#
+# Detects when code changes may have made documentation stale.
+# Runs on every pull request and posts a report as a PR comment.
+#
+# Required secrets:
+#   - OPENAI_API_KEY: Your OpenAI API key
+#   - DOC_SOURCES_JSON: JSON array of documentation sources to scan
+#
+# See README.md for full configuration options.
+# =============================================================================
+
 name: Documentation Drift Check
+
+# -----------------------------------------------------------------------------
+# Trigger Configuration
+# -----------------------------------------------------------------------------
+# Runs on all pull request activity that could change the diff:
+#   - opened: New PR created
+#   - synchronize: New commits pushed to PR branch
+#   - reopened: Previously closed PR reopened
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+# -----------------------------------------------------------------------------
+# Permissions
+# -----------------------------------------------------------------------------
+# Minimum permissions required:
+#   - contents:read — Access repo files and PR diff
+#   - pull-requests:write — Post comments on the PR
 
 permissions:
   contents: read
   pull-requests: write
 
+# -----------------------------------------------------------------------------
+# Jobs
+# -----------------------------------------------------------------------------
+
 jobs:
-  doc_drift:
+  doc-drift:
+    name: Check for Documentation Drift
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      # -----------------------------------------------------------------------
+      # Setup
+      # -----------------------------------------------------------------------
+
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           npm init -y
-          npm i @actions/core @actions/github node-fetch@3
+          npm install @actions/core @actions/github node-fetch@3
 
-      - name: Run doc drift check
+      # -----------------------------------------------------------------------
+      # Run Analysis
+      # -----------------------------------------------------------------------
+
+      - name: Analyze documentation drift
         env:
+          # Required secrets
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           DOC_SOURCES_JSON: ${{ secrets.DOC_SOURCES_JSON }}
+
+          # Optional configuration (defaults shown)
           OPENAI_MODEL: "gpt-4o-mini"
           DRIFT_FAILS_BUILD: "true"
+          DRIFT_CONFIDENCE_THRESHOLD: "0.75"
           MAX_DOC_BYTES: "250000"
+          MAX_FINDINGS: "25"
+
         run: node .github/scripts/doc-drift.mjs
