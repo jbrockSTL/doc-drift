@@ -1,0 +1,36 @@
+name: Documentation Drift Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  doc_drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        run: |
+          npm init -y
+          npm i @actions/core @actions/github node-fetch@3
+
+      - name: Run doc drift check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DOC_SOURCES_JSON: ${{ secrets.DOC_SOURCES_JSON }}
+          OPENAI_MODEL: "gpt-4o-mini"
+          DRIFT_FAILS_BUILD: "true"
+          MAX_DOC_BYTES: "250000"
+        run: node .github/scripts/doc-drift.mjs
